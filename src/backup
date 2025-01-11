@@ -1,0 +1,158 @@
+import javax.swing.*;
+import java.awt.*;
+import java.net.URL;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseAdapter;
+
+
+public class Board {
+
+    private final String[][] boardState = {
+            {"black_rook", "black_knight", "black_bishop", "black_queen", "black_king", "black_bishop", "black_knight", "black_rook"},
+            {"black_pawn", "black_pawn", "black_pawn", "black_pawn", "black_pawn", "black_pawn", "black_pawn", "black_pawn"},
+            {null, null, null, null, null, null, null, null},
+            {null, null, null, null, null, null, null, null},
+            {null, null, null, null, null, null, null, null},
+            {null, null, null, null, null, null, null, null},
+            {"white_pawn", "white_pawn", "white_pawn", "white_pawn", "white_pawn", "white_pawn", "white_pawn", "white_pawn"},
+            {"white_rook", "white_knight", "white_bishop", "white_queen", "white_king", "white_bishop", "white_knight", "white_rook"}
+    };
+
+
+    private JPanel[][] squares=new JPanel[8][8];
+    private GameLogic gameLogic;
+    public Board(){
+        gameLogic=new GameLogic(boardState);
+    }
+
+    public void displayBoard() {
+        JFrame frame = new JFrame("Tabla de joc");
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setSize(600, 600);
+        frame.setLayout(new GridLayout(8, 8));
+
+        // culori
+        Color lightColor = new Color(255, 255, 255);
+        Color darkColor = new Color(46, 139, 87);
+
+        // patratele și piesele
+        for (int row = 0; row < 8; row++) {
+            for (int col = 0; col < 8; col++) {
+                JPanel square = new JPanel(new BorderLayout());
+                if ((row + col) % 2 == 0) {
+                    square.setBackground(lightColor);
+                } else {
+                    square.setBackground(darkColor);
+                }
+
+                String piece = boardState[row][col];
+                if (piece != null) {
+                    // cale imagini
+                    String imagePath = "image/" + piece + ".png";
+                    URL imageUrl = getClass().getResource(imagePath);
+                    if (imageUrl == null) {
+                        System.out.println("imaginea nu este: " + imagePath);
+                    } else {
+                        ImageIcon icon = new ImageIcon(imageUrl);
+                        JLabel label = new JLabel(icon);
+                        square.add(label);
+                    }
+                }
+
+                frame.add(square);
+            }
+        }
+
+        frame.setVisible(true);
+    }
+
+    private void ClickSquare(int row,int col){
+        if(gameLogic.selectPiece(row,col)){
+            squares[row][col].setBoard(BoardFactory.createLineBoard(Color.RED,3));
+        }else if(gameLogic.movePice(row,col)){
+            refreshBoard();
+        }
+    }
+
+    private void refreshBoard(){
+        for(int row=0;row<8;row++){
+            for(int col=0;col<8;col++){
+                squares[row][col].removeAll();
+                String piece=boardState[row][col];
+                if(piece!=null){
+                    JLabel label=new JLabel(new ImageIcon(getClass().getResource("image/"+piece+".png")));
+                    squares[row][col].add(label);
+                }
+                squares[row][col].setBoard(BoardFactory.createLineBoarder(Color.BLACK));
+                squares[row][col].revalidate();
+                squares[row][col].repaint();
+            }
+        }
+    }
+
+
+
+}
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class PieceMoves {
+
+    // Metodă pentru a obține mișcările unui pion
+    public static List<int[]> getPawnMoves(String[][] board, int row, int col, boolean isWhite, boolean hasMoved) {
+        List<int[]> moves = new ArrayList<>();
+        int direction = isWhite ? -1 : 1;
+
+        // Mutăm înainte 1 pătrat (normal)
+        if (isInBounds(row + direction, col) && board[row + direction][col] == null) {
+            moves.add(new int[]{row + direction, col});
+        }
+
+        // Mutare în 2 pătrate pentru prima mișcare (dacă pionul nu s-a mutat anterior)
+        if (!hasMoved && isInBounds(row + 2 * direction, col) && board[row + 2 * direction][col] == null && board[row + direction][col] == null) {
+            moves.add(new int[]{row + 2 * direction, col});
+        }
+
+        // Diagonala (pentru capturare)
+        if (isInBounds(row + direction, col + 1) && board[row + direction][col + 1] != null && !isSameColor(board[row][col], board[row + direction][col + 1])) {
+            moves.add(new int[]{row + direction, col + 1});
+        }
+        if (isInBounds(row + direction, col - 1) && board[row + direction][col - 1] != null && !isSameColor(board[row][col], board[row + direction][col - 1])) {
+            moves.add(new int[]{row + direction, col - 1});
+        }
+
+        return moves;
+    }
+
+    // Metodă pentru a obține mișcările unui cal
+    public static List<int[]> getKnightMoves(String[][] board, int row, int col) {
+        List<int[]> moves = new ArrayList<>();
+        int[][] offsets = {
+                {-2, -1}, {-2, 1}, {2, -1}, {2, 1},
+                {-1, -2}, {-1, 2}, {1, -2}, {1, 2}
+        };
+
+        for (int[] offset : offsets) {
+            int newRow = row + offset[0];
+            int newCol = col + offset[1];
+            if (isInBounds(newRow, newCol) && (board[newRow][newCol] == null || !isSameColor(board[row][col], board[newRow][newCol]))) {
+                moves.add(new int[]{newRow, newCol});
+            }
+        }
+
+        return moves;
+    }
+
+    // Verificăm dacă o poziție este pe tabla de șah
+    private static boolean isInBounds(int row, int col) {
+        return row >= 0 && row < 8 && col >= 0 && col < 8;
+    }
+
+    // Verificăm dacă două piese sunt de aceeași culoare
+    private static boolean isSameColor(String piece1, String piece2) {
+        if (piece1 == null || piece2 == null) return false;
+        return piece1.startsWith("white") == piece2.startsWith("white");
+    }
+}
+
